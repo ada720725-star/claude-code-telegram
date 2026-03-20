@@ -79,6 +79,44 @@ DEBOUNCE_SECS = float(os.environ.get('TELEGRAM_DEBOUNCE_SECS', '2'))
 BRAKE_FILE = os.path.join(DATA_DIR, 'BRAKE.flag')
 CONVERSATION_MAX_MESSAGES = 100
 
+# ---------------------------------------------------------------------------
+# Security limits (media size, rate, token permissions)
+# ---------------------------------------------------------------------------
+
+MAX_AUDIO_SIZE = 10 * 1024 * 1024   # 10 MB
+MAX_PHOTO_SIZE = 5 * 1024 * 1024    # 5 MB
+MAX_AUDIO_DURATION = 120            # seconds
+MEDIA_RATE_LIMIT = 10               # max media messages per minute
+ALLOWED_AUDIO_MIME = {'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/x-wav', 'audio/wav'}
+_media_timestamps: list[float] = []
+
+
+def _check_token_file_permissions():
+    """Refuse to start if token file is readable by group/world."""
+    path = os.environ.get('TELEGRAM_TOKEN_FILE', '~/.telegram-bot-token')
+    resolved = os.path.expanduser(path)
+    if not os.path.exists(resolved):
+        return  # using env var, no file to check
+    mode = os.stat(resolved).st_mode & 0o777
+    if mode & 0o077:
+        print(
+            f"FATAL: {resolved} has permissions {oct(mode)}. "
+            f"Group/world can read your bot token. Run: chmod 600 {resolved}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def _check_media_rate() -> bool:
+    """Return False if media rate limit exceeded (per-minute window)."""
+    now = time.time()
+    _media_timestamps[:] = [t for t in _media_timestamps if now - t < 60]
+    if len(_media_timestamps) >= MEDIA_RATE_LIMIT:
+        return False
+    _media_timestamps.append(now)
+    return True
+
+
 os.makedirs(DATA_DIR, mode=0o700, exist_ok=True)
 os.makedirs(TRANSCRIPT_DIR, mode=0o700, exist_ok=True)
 os.makedirs(MEDIA_DIR, mode=0o700, exist_ok=True)
@@ -300,6 +338,7 @@ def save_offset(o):
 STOP_WORDS = {'stop', '/stop'}
 
 def main():
+    _check_token_file_permissions()
     print(f"Telegram watcher started. Data dir: {DATA_DIR}", flush=True)
     offset = load_offset()
     _last_msg_time = 0.0  # timestamp of last received message
@@ -356,6 +395,21 @@ def main():
                 # Voice
                 voice = msg.get('voice') or msg.get('audio')
                 if voice:
+                    file_size = voice.get('file_size', 0)
+                    duration = voice.get('duration', 0)
+                    mime = voice.get('mime_type', '')
+                    if file_size > MAX_AUDIO_SIZE:
+                        api('sendMessage', {'chat_id': chat_id, 'text': f'Audio too large ({file_size // 1024 // 1024}MB > {MAX_AUDIO_SIZE // 1024 // 1024}MB)'})
+                        continue
+                    if duration > MAX_AUDIO_DURATION:
+                        api('sendMessage', {'chat_id': chat_id, 'text': f'Audio too long ({duration}s > {MAX_AUDIO_DURATION}s)'})
+                        continue
+                    if mime and mime not in ALLOWED_AUDIO_MIME:
+                        api('sendMessage', {'chat_id': chat_id, 'text': f'Unsupported audio format: {mime}'})
+                        continue
+                    if not _check_media_rate():
+                        api('sendMessage', {'chat_id': chat_id, 'text': 'Too many media messages. Try again shortly.'})
+                        continue
                     api('sendChatAction', {'chat_id': chat_id, 'action': 'typing'})
                     local_path = _download_file(voice['file_id'])
                     if local_path:
@@ -374,8 +428,16 @@ def main():
                 # Photo — save to media dir, pass path to Claude Code
                 photo = msg.get('photo')
                 if photo:
+                    best = photo[-1]
+                    file_size = best.get('file_size', 0)
+                    if file_size > MAX_PHOTO_SIZE:
+                        api('sendMessage', {'chat_id': chat_id, 'text': f'Photo too large ({file_size // 1024 // 1024}MB > {MAX_PHOTO_SIZE // 1024 // 1024}MB)'})
+                        continue
+                    if not _check_media_rate():
+                        api('sendMessage', {'chat_id': chat_id, 'text': 'Too many media messages. Try again shortly.'})
+                        continue
                     api('sendChatAction', {'chat_id': chat_id, 'action': 'typing'})
-                    local_path = _download_file(photo[-1]['file_id'], dest_dir=MEDIA_DIR)
+                    local_path = _download_file(best['file_id'], dest_dir=MEDIA_DIR)
                     if local_path:
                         caption = msg.get('caption', '') or ''
                         text = f"[photo] {caption}".strip() if caption else "[photo]"

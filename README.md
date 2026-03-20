@@ -182,6 +182,7 @@ data/
 - **No cloud login** — Unlike Channels, no claude.ai login required. Your bot token stays on your machine. Messages are sent to Telegram's API and, when processed by Claude Code, to Anthropic's API.
 - **Local storage** — Messages, transcripts, and media are stored as plaintext JSON/files on disk. Protect your data directory accordingly.
 - **Nudge command** — `TELEGRAM_NUDGE_CMD` uses `shell=True`. Only set this to commands you trust.
+- **Session isolation** — By default, the skill treats Telegram messages as conversation only: no file writes, no tool execution, no system commands. If you need tool access from Telegram, you must explicitly modify `commands/telegram-watch.md`. See [SECURITY.md](SECURITY.md) for details on this architectural boundary.
 
 See [SECURITY.md](SECURITY.md) for full details.
 

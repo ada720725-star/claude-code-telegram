@@ -30,6 +30,14 @@ Mitigations **not** in place (by design):
 
 This is an inherent limitation of any system that passes external text to an LLM. The single-user auth reduces the attack surface to: someone who has access to your Telegram account, or someone who can write to your inbox file.
 
+## Session isolation (architectural limitation)
+
+Telegram messages enter the same Claude Code session that has full tool access (Bash, file read/write, etc.). The boundary between "Telegram conversation" and "Claude Code session commands" is **prompt-level only** — the skill instructs Claude to treat messages as conversation, not as instructions, but there is no technical enforcement preventing tool execution triggered by message content.
+
+If your Telegram account were compromised while a Claude Code session is running with permissive settings, an attacker could potentially craft messages that cause Claude to execute tools on your local machine.
+
+The default skill prompt (`commands/telegram-watch.md`) treats Telegram messages as conversation only — no file modifications, no tool execution, no system commands. If you need Claude to execute tools based on Telegram messages (e.g., running code, modifying files), you must explicitly modify the skill prompt to allow it. See `commands/telegram-watch.md` for where to adjust this.
+
 ## Data handling
 
 - **Messages are stored in plaintext** JSON files on disk. Anyone with filesystem access can read them.
