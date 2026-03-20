@@ -77,8 +77,9 @@ NUDGE_CMD = os.environ.get('TELEGRAM_NUDGE_CMD')
 BRAKE_FILE = os.path.join(DATA_DIR, 'BRAKE.flag')
 CONVERSATION_MAX_MESSAGES = 100
 
-os.makedirs(TRANSCRIPT_DIR, exist_ok=True)
-os.makedirs(MEDIA_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, mode=0o700, exist_ok=True)
+os.makedirs(TRANSCRIPT_DIR, mode=0o700, exist_ok=True)
+os.makedirs(MEDIA_DIR, mode=0o700, exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # Whisper (lazy load)
@@ -252,7 +253,7 @@ def _write_inbox(text, chat_id, timestamp, message_id, media_path=None):
         json.dump(inbox, f, ensure_ascii=False)
     os.replace(INBOX_TMP, INBOX)
 
-    print(f"NEW: {text[:60]}", flush=True)
+    print("NEW message received", flush=True)
     _nudge()
 
 

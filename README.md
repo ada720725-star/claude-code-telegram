@@ -71,7 +71,7 @@ Claude Code responds as itself — with full conversation context, memory, and t
 
 **This project** = "I want an async communication channel with a Claude that remembers me." Identity and memory are the center, Telegram is the interface.
 
-If you need instant code execution from your phone, use Channels. If you want a persistent, personalized AI assistant you can text anytime — even when your laptop is closed — this project is for you.
+If you need instant code execution from your phone, use Channels. If you want a persistent, personalized AI assistant you can text anytime — as long as the watcher and Claude Code session are running on your machine — this project is for you.
 
 ### Quota impact for subscribers
 
@@ -108,8 +108,8 @@ cp .env.example .env
 Or use files:
 
 ```bash
-echo "your-bot-token" > ~/.telegram-bot-token
-echo "123456789" > ~/.telegram-user-id
+echo "your-bot-token" > ~/.telegram-bot-token && chmod 600 ~/.telegram-bot-token
+echo "123456789" > ~/.telegram-user-id && chmod 600 ~/.telegram-user-id
 ```
 
 ### 4. Install the Claude Code skill
@@ -178,7 +178,7 @@ data/
 
 - **Single-user only** — Only your Telegram user ID is accepted. All other messages are silently dropped. No group chat support by design.
 - **No inbound ports** — Long-polling only. No webhook, no publicly accessible endpoint.
-- **No cloud login** — Unlike Channels, no claude.ai login required. Your token and messages never leave your machine (except to Telegram's API).
+- **No cloud login** — Unlike Channels, no claude.ai login required. Your bot token stays on your machine. Messages are sent to Telegram's API and, when processed by Claude Code, to Anthropic's API.
 - **Local storage** — Messages, transcripts, and media are stored as plaintext JSON/files on disk. Protect your data directory accordingly.
 - **Nudge command** — `TELEGRAM_NUDGE_CMD` uses `shell=True`. Only set this to commands you trust.
 

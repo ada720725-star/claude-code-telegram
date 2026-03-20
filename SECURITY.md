@@ -14,7 +14,7 @@ This tool is designed for **single-user operation on a personal machine**. The t
 
 - **Single-user design**: Only one Telegram user ID is allowed. All messages from other users are silently dropped.
 - **Token storage**: Bot tokens can be stored in environment variables or files. If using files, ensure restrictive permissions (`chmod 600`).
-- **No cloud auth**: Unlike Claude Code Channels, this project requires no cloud login. Everything runs locally.
+- **No cloud auth**: Unlike Claude Code Channels, this project requires no cloud login. The watcher runs locally, but messages processed by Claude Code are sent to Anthropic's model API as part of the normal Claude Code workflow.
 
 ## Prompt injection
 
