@@ -1,0 +1,140 @@
+# claude-code-telegram
+
+Async Telegram integration for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Message Claude from your phone, get replies from your running Claude Code session.
+
+## How it works
+
+```
+You (Telegram) → telegram_watcher.py → inbox.json → Claude Code skill → outbox.json → telegram_watcher.py → You (Telegram)
+```
+
+Two components:
+
+1. **`telegram_watcher.py`** — Long-polling bot that receives your Telegram messages and writes them to an inbox file. Picks up replies from an outbox file and sends them back.
+2. **`commands/telegram-watch.md`** — Claude Code [custom slash command](https://docs.anthropic.com/en/docs/claude-code/slash-commands) that reads the inbox, replies using the full session context, and writes to the outbox.
+
+Claude Code responds as itself — with full conversation context, memory, and tools. This is not a proxy to the API; it's your running session replying directly.
+
+## Features
+
+- Text, voice (mlx-whisper), and photo messages
+- Photos saved locally and passed to Claude Code for visual understanding
+- JSONL transcripts per day
+- Conversation history with automatic truncation (keeps last 100 messages)
+- Atomic file writes to prevent race conditions
+- Brake command (`stop` / `/stop`) — creates a flag file to signal other processes
+- Optional nudge command to wake up the Claude Code session
+- Zero required dependencies (Python stdlib only)
+
+## Setup
+
+### 1. Create a Telegram bot
+
+Talk to [@BotFather](https://t.me/BotFather), create a bot, get the token.
+
+### 2. Get your Telegram user ID
+
+Send a message to your bot, then:
+
+```bash
+curl "https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates" | python3 -m json.tool
+```
+
+Look for `message.from.id` — that's your user ID.
+
+### 3. Configure
+
+```bash
+cp .env.example .env
+# Edit .env with your token and user ID
+```
+
+Or use files:
+
+```bash
+echo "your-bot-token" > ~/.telegram-bot-token
+echo "123456789" > ~/.telegram-user-id
+```
+
+### 4. Install the Claude Code skill
+
+Copy the skill to your Claude Code commands directory:
+
+```bash
+cp commands/telegram-watch.md ~/.claude/commands/
+```
+
+### 5. Run
+
+```bash
+./run.sh
+```
+
+Or manually:
+
+```bash
+export $(grep -v '^#' .env | xargs)
+python3 telegram_watcher.py
+```
+
+### 6. Use
+
+In your Claude Code session, run `/telegram-watch` to check for and reply to messages.
+
+For continuous monitoring, use the `/loop` skill if available:
+
+```
+/loop 30s /telegram-watch
+```
+
+## Configuration
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | Yes* | — | Bot token from BotFather |
+| `TELEGRAM_ALLOWED_USER` | Yes* | — | Your Telegram user ID |
+| `TELEGRAM_DATA_DIR` | No | `./data` | Directory for all data files |
+| `TELEGRAM_WHISPER_MODEL` | No | `mlx-community/whisper-small` | HuggingFace model for voice |
+| `TELEGRAM_WHISPER_LANG` | No | auto-detect | Language code (en, zh, ja, etc.) |
+| `TELEGRAM_NUDGE_CMD` | No | — | Shell command on new message |
+| `TELEGRAM_TOKEN_FILE` | No | `~/.telegram-bot-token` | File containing bot token |
+| `TELEGRAM_USER_FILE` | No | `~/.telegram-user-id` | File containing user ID |
+
+*Can use env var or file-based config.
+
+## Data files
+
+All stored in `$TELEGRAM_DATA_DIR` (default: `./data`):
+
+```
+data/
+├── telegram_inbox.json          # Pending messages for Claude Code
+├── telegram_outbox.json         # Replies waiting to be sent
+├── telegram_offset              # Telegram update offset
+├── telegram_conversation.json   # Conversation history (auto-truncated)
+├── telegram_transcripts/        # Daily JSONL transcripts
+│   └── telegram_YYYY-MM-DD.jsonl
+├── media/                       # Downloaded photos
+└── BRAKE.flag                   # Created on stop command
+```
+
+## Architecture notes
+
+- **Atomic writes**: Inbox uses write-to-tmp-then-rename to prevent data loss when the watcher and Claude Code skill access the file concurrently.
+- **Conversation truncation**: History is automatically trimmed to the last 100 messages on startup and after each reply cycle. Full history is preserved in daily transcript files.
+- **Photo handling**: Images are saved to `data/media/` and their paths are included in inbox messages. Claude Code can read these files directly for visual understanding.
+- **Voice language**: By default, whisper auto-detects the spoken language. Set `TELEGRAM_WHISPER_LANG` to force a specific language for better accuracy.
+
+## How it compares to Claude Code Channels
+
+[Claude Code Channels](https://docs.anthropic.com/en/docs/claude-code/channels) (March 2026) is Anthropic's official Telegram/Discord integration. This project predates it and differs in:
+
+- **Session context** — Your replies come from a running Claude Code session with full tool access, memory, and conversation history
+- **Customizable identity** — The skill prompt is yours to edit. Claude responds as whoever you've configured it to be
+- **File-based protocol** — Simple inbox/outbox JSON files. Easy to extend, debug, and integrate with other tools
+- **Voice transcription** — Built-in mlx-whisper support for Apple Silicon
+- **No cloud dependency** — Runs entirely on your machine
+
+## License
+
+MIT
