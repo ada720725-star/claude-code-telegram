@@ -156,8 +156,7 @@ def api(method, data=None):
         resp = urllib.request.urlopen(req, timeout=30)
         return json.loads(resp.read())
     except Exception as e:
-        safe_url = url.replace(TOKEN, TOKEN[:8] + '...')
-        raise type(e)(str(e).replace(TOKEN, TOKEN[:8] + '...')) from None
+        raise RuntimeError(str(e).replace(TOKEN, TOKEN[:8] + '...')) from None
 
 
 def _download_file(file_id, dest_dir=None):
@@ -166,7 +165,11 @@ def _download_file(file_id, dest_dir=None):
     If dest_dir is given, saves there with a stable name (for media).
     Otherwise uses a temp file (for voice transcription).
     """
-    result = api('getFile', {'file_id': file_id})
+    try:
+        result = api('getFile', {'file_id': file_id})
+    except Exception as e:
+        print(f"getFile failed: {e}", file=sys.stderr)
+        return None
     if not result or not result.get('ok'):
         return None
     file_path = result['result']['file_path']
