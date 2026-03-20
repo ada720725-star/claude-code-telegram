@@ -26,6 +26,60 @@ Claude Code responds as itself — with full conversation context, memory, and t
 - Optional nudge command to wake up the Claude Code session
 - Zero required dependencies (Python stdlib only)
 
+## How it compares to Claude Code Channels
+
+[Claude Code Channels](https://code.claude.com/docs/en/channels) (March 2026) is Anthropic's official Telegram/Discord integration built on MCP. Both solve the same problem — messaging Claude from your phone — but with fundamentally different approaches.
+
+### Feature comparison
+
+| | This project | Claude Code Channels |
+|---|---|---|
+| **Architecture** | Independent Python script + Claude Code skill, file-based IPC (inbox/outbox JSON) | MCP server as subprocess, direct notification injection into session |
+| **Setup** | Clone repo + set env vars + run script | `/plugin install telegram` one-liner |
+| **Latency** | 10–20s (file polling) | < 1s (MCP notification) |
+| **Voice messages** | Built-in mlx-whisper, on-device transcription | Not available |
+| **Photo handling** | Saved locally, Claude reads via Read tool | Discord attachments only, Telegram unclear |
+| **Identity** | Fully customizable — edit the skill prompt to define who Claude is | Standard Claude, no identity layer |
+| **Memory** | conversation.json + daily transcripts persist across sessions | Session-only — close the session, lose the context |
+| **Offline buffering** | Messages wait in inbox until session picks them up | Events only arrive while session is open |
+| **Quota usage** | You control when to process — batch messages, reply on your schedule | Every incoming message consumes quota immediately |
+| **Platforms** | Telegram | Telegram + Discord (community can extend via MCP) |
+| **Dependencies** | Python stdlib only | Claude Code v2.1.80+, claude.ai login, MCP plugin system |
+
+### Where this project wins
+
+- **Memory continuity** — Channels lose context when the session closes. This project keeps conversation history and daily transcripts across sessions.
+- **Customizable identity** — The skill prompt is yours. Claude responds as whoever you've configured — a named persona, a domain expert, or just "you but with a specific tone."
+- **Voice transcription** — On-device speech-to-text via mlx-whisper (Apple Silicon). Channels doesn't offer this.
+- **Offline buffering** — Messages are stored in the inbox file until Claude Code is ready. Channels require an active session or messages are lost.
+- **Quota efficiency** — You decide when to check and respond. Batch 10 messages and reply once, or check every 30 seconds. Channels process every message immediately, burning through Pro/Max quota faster.
+- **Zero dependencies** — Pure Python stdlib. No plugin system, no minimum version requirement, no cloud login needed.
+
+### Where Channels wins
+
+- **Instant delivery** — MCP notification injection is near-instant. Our file-based polling has 10–20s latency.
+- **Deeper integration** — Direct session injection means Claude has full tool access without file-based intermediation.
+- **One-line setup** — `/plugin install telegram` vs. cloning a repo and configuring env vars.
+- **Multi-platform** — Discord support and community-extensible via MCP standard.
+- **Rich interactions** — Discord supports edits, reactions, and history retrieval.
+
+### Different problems, different solutions
+
+**Channels** = "I want to run Claude Code commands from my phone." The session is the center, Telegram is a remote input device.
+
+**This project** = "I want an async communication channel with a Claude that remembers me." Identity and memory are the center, Telegram is the interface.
+
+If you need instant code execution from your phone, use Channels. If you want a persistent, personalized AI assistant you can text anytime — even when your laptop is closed — this project is for you.
+
+### Quota impact for subscribers
+
+| Plan | Channels cost | This project cost |
+|---|---|---|
+| Pro ($20/mo) | Every TG message = one interaction, quota runs out fast | You control frequency — batch replies save quota |
+| Max $100/mo | 5x Pro quota, moderate usage OK | Same flexibility, lasts longer |
+| Max $200/mo | 20x Pro + Opus, best fit for Channels | Overkill for this project's pattern |
+| API key | Pay per token ($5/$25 per M for Opus) | Same — only the skill reply step costs tokens |
+
 ## Setup
 
 ### 1. Create a Telegram bot
@@ -118,22 +172,22 @@ data/
 └── BRAKE.flag                   # Created on stop command
 ```
 
+## Security
+
+- **Single-user only** — Only your Telegram user ID is accepted. All other messages are silently dropped. No group chat support by design.
+- **No inbound ports** — Long-polling only. No webhook, no publicly accessible endpoint.
+- **No cloud login** — Unlike Channels, no claude.ai login required. Your token and messages never leave your machine (except to Telegram's API).
+- **Local storage** — Messages, transcripts, and media are stored as plaintext JSON/files on disk. Protect your data directory accordingly.
+- **Nudge command** — `TELEGRAM_NUDGE_CMD` uses `shell=True`. Only set this to commands you trust.
+
+See [SECURITY.md](SECURITY.md) for full details.
+
 ## Architecture notes
 
-- **Atomic writes**: Inbox uses write-to-tmp-then-rename to prevent data loss when the watcher and Claude Code skill access the file concurrently.
+- **Atomic writes**: Inbox uses write-to-tmp-then-rename to prevent data loss when the watcher and Claude Code skill access the file concurrently. Outbox uses rename-then-process for the same reason.
 - **Conversation truncation**: History is automatically trimmed to the last 100 messages on startup and after each reply cycle. Full history is preserved in daily transcript files.
 - **Photo handling**: Images are saved to `data/media/` and their paths are included in inbox messages. Claude Code can read these files directly for visual understanding.
 - **Voice language**: By default, whisper auto-detects the spoken language. Set `TELEGRAM_WHISPER_LANG` to force a specific language for better accuracy.
-
-## How it compares to Claude Code Channels
-
-[Claude Code Channels](https://docs.anthropic.com/en/docs/claude-code/channels) (March 2026) is Anthropic's official Telegram/Discord integration. This project predates it and differs in:
-
-- **Session context** — Your replies come from a running Claude Code session with full tool access, memory, and conversation history
-- **Customizable identity** — The skill prompt is yours to edit. Claude responds as whoever you've configured it to be
-- **File-based protocol** — Simple inbox/outbox JSON files. Easy to extend, debug, and integrate with other tools
-- **Voice transcription** — Built-in mlx-whisper support for Apple Silicon
-- **No cloud dependency** — Runs entirely on your machine
 
 ## License
 
