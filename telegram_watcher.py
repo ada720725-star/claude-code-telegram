@@ -147,12 +147,16 @@ def _truncate_conversation():
 
 def api(method, data=None):
     url = f'https://api.telegram.org/bot{TOKEN}/{method}'
-    if data:
-        req = urllib.request.Request(url, json.dumps(data).encode(), {'Content-Type': 'application/json'})
-    else:
-        req = urllib.request.Request(url)
-    resp = urllib.request.urlopen(req, timeout=30)
-    return json.loads(resp.read())
+    try:
+        if data:
+            req = urllib.request.Request(url, json.dumps(data).encode(), {'Content-Type': 'application/json'})
+        else:
+            req = urllib.request.Request(url)
+        resp = urllib.request.urlopen(req, timeout=30)
+        return json.loads(resp.read())
+    except Exception as e:
+        safe_url = url.replace(TOKEN, TOKEN[:8] + '...')
+        raise type(e)(str(e).replace(TOKEN, TOKEN[:8] + '...')) from None
 
 
 def _download_file(file_id, dest_dir=None):
@@ -165,29 +169,29 @@ def _download_file(file_id, dest_dir=None):
     if not result or not result.get('ok'):
         return None
     file_path = result['result']['file_path']
-    url = f'https://api.telegram.org/file/bot{TOKEN}/{file_path}'
+    download_url = f'https://api.telegram.org/file/bot{TOKEN}/{file_path}'
     ext = os.path.splitext(file_path)[1] or '.ogg'
 
     if dest_dir:
         ts = datetime.now().strftime('%Y%m%d_%H%M%S')
         local_path = os.path.join(dest_dir, f'{ts}_{file_id[:8]}{ext}')
         try:
-            resp = urllib.request.urlopen(url, timeout=30)
+            resp = urllib.request.urlopen(download_url, timeout=30)
             with open(local_path, 'wb') as f:
                 f.write(resp.read())
             return local_path
         except Exception as e:
-            print(f"Download failed: {e}", file=sys.stderr)
+            print(f"Download failed: {str(e).replace(TOKEN, TOKEN[:8] + '...')}", file=sys.stderr)
             return None
     else:
         tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
         try:
-            resp = urllib.request.urlopen(url, timeout=30)
+            resp = urllib.request.urlopen(download_url, timeout=30)
             tmp.write(resp.read())
             tmp.close()
             return tmp.name
         except Exception as e:
-            print(f"Download failed: {e}", file=sys.stderr)
+            print(f"Download failed: {str(e).replace(TOKEN, TOKEN[:8] + '...')}", file=sys.stderr)
             tmp.close()
             os.unlink(tmp.name)
             return None

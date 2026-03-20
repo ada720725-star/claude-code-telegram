@@ -11,4 +11,9 @@ fi
 
 export $(grep -v '^\s*#' "$ENV_FILE" | grep -v '^\s*$' | xargs)
 
+DATA_DIR="${TELEGRAM_DATA_DIR:-${SCRIPT_DIR}/data}"
+if [ -d "$DATA_DIR" ]; then
+    chmod 700 "$DATA_DIR"
+fi
+
 exec python3 "${SCRIPT_DIR}/telegram_watcher.py" "$@"

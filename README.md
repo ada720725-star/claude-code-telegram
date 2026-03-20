@@ -1,5 +1,7 @@
 # claude-code-telegram
 
+> **Security notice**: This is a personal tool designed for single-user use on a private machine. If you run it on a shared system, other users with filesystem access can read your messages, tokens, and session data. See [SECURITY.md](SECURITY.md) for the full threat model.
+
 Async Telegram integration for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Message Claude from your phone, get replies from your running Claude Code session.
 
 ## How it works
