@@ -153,6 +153,7 @@ For continuous monitoring, use the `/loop` skill if available:
 | `TELEGRAM_WHISPER_MODEL` | No | `mlx-community/whisper-small` | HuggingFace model for voice |
 | `TELEGRAM_WHISPER_LANG` | No | auto-detect | Language code (en, zh, ja, etc.) |
 | `TELEGRAM_NUDGE_CMD` | No | — | Shell command on new message |
+| `TELEGRAM_DEBOUNCE_SECS` | No | `2` | Seconds to wait for more messages before nudging |
 | `TELEGRAM_TOKEN_FILE` | No | `~/.telegram-bot-token` | File containing bot token |
 | `TELEGRAM_USER_FILE` | No | `~/.telegram-user-id` | File containing user ID |
 

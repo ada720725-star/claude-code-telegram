@@ -12,6 +12,7 @@ Configuration (environment variables):
     TELEGRAM_WHISPER_MODEL  HuggingFace model for voice transcription
     TELEGRAM_WHISPER_LANG   Language for voice transcription (default: auto-detect)
     TELEGRAM_NUDGE_CMD      Optional shell command to run when new message arrives
+    TELEGRAM_DEBOUNCE_SECS  Seconds to wait for more messages before nudging (default: 2)
     TELEGRAM_TOKEN_FILE     File containing bot token (default: ~/.telegram-bot-token)
     TELEGRAM_USER_FILE      File containing user ID (default: ~/.telegram-user-id)
 """
