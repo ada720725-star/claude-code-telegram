@@ -74,6 +74,7 @@ CONVERSATION_FILE = os.path.join(DATA_DIR, 'telegram_conversation.json')
 WHISPER_MODEL = os.environ.get('TELEGRAM_WHISPER_MODEL', 'mlx-community/whisper-small')
 WHISPER_LANG = os.environ.get('TELEGRAM_WHISPER_LANG')  # None = auto-detect
 NUDGE_CMD = os.environ.get('TELEGRAM_NUDGE_CMD')
+DEBOUNCE_SECS = float(os.environ.get('TELEGRAM_DEBOUNCE_SECS', '2'))
 BRAKE_FILE = os.path.join(DATA_DIR, 'BRAKE.flag')
 CONVERSATION_MAX_MESSAGES = 100
 
@@ -257,7 +258,6 @@ def _write_inbox(text, chat_id, timestamp, message_id, media_path=None):
     os.replace(INBOX_TMP, INBOX)
 
     print("NEW message received", flush=True)
-    _nudge()
 
 
 # ---------------------------------------------------------------------------
@@ -301,12 +301,18 @@ STOP_WORDS = {'stop', '/stop'}
 def main():
     print(f"Telegram watcher started. Data dir: {DATA_DIR}", flush=True)
     offset = load_offset()
+    _last_msg_time = 0.0  # timestamp of last received message
+    _pending_nudge = False  # whether we have un-nudged messages
 
     # Truncate conversation history on startup
     _truncate_conversation()
 
     while True:
         try:
+            # Debounce: nudge only after DEBOUNCE_SECS of silence
+            if _pending_nudge and (time.time() - _last_msg_time) >= DEBOUNCE_SECS:
+                _nudge()
+                _pending_nudge = False
             # Send outbox replies (rename-then-process to avoid race with skill)
             if os.path.exists(OUTBOX):
                 outbox_processing = OUTBOX + '.sending'
@@ -358,6 +364,8 @@ def main():
                             text = f"[voice] {text}"
                             _write_transcript('user', text)
                             _write_inbox(text, chat_id, timestamp, message_id)
+                            _last_msg_time = time.time()
+                            _pending_nudge = True
                         else:
                             api('sendMessage', {'chat_id': chat_id, 'text': 'Voice transcription failed. Try again?'})
                     continue
@@ -372,6 +380,8 @@ def main():
                         text = f"[photo] {caption}".strip() if caption else "[photo]"
                         _write_transcript('user', text)
                         _write_inbox(text, chat_id, timestamp, message_id, media_path=local_path)
+                        _last_msg_time = time.time()
+                        _pending_nudge = True
                     continue
 
                 # Text
@@ -389,6 +399,8 @@ def main():
                 api('sendChatAction', {'chat_id': chat_id, 'action': 'typing'})
                 _write_transcript('user', text)
                 _write_inbox(text, chat_id, timestamp, message_id)
+                _last_msg_time = time.time()
+                _pending_nudge = True
 
         except Exception as e:
             print(f"Poll error: {e}", file=sys.stderr)
