@@ -360,27 +360,19 @@ def main():
                     os.replace(OUTBOX, outbox_processing)
                     with open(outbox_processing) as f:
                         out = json.loads(f.read())
-                    failed = []
                     for msg in out:
                         try:
                             api('sendMessage', {'chat_id': msg['chat_id'], 'text': msg['text']})
                             _write_transcript('assistant', msg['text'])
                         except Exception as e:
                             print(f"Send failed: {e}", file=sys.stderr)
-                            failed.append(msg)
                     os.remove(outbox_processing)
-                    if failed:
-                        _outbox_tmp = OUTBOX + '.tmp'
-                        with open(_outbox_tmp, 'w') as f:
-                            json.dump(failed, f, ensure_ascii=False)
-                        os.replace(_outbox_tmp, OUTBOX)
-                        print(f"{len(failed)} message(s) failed, written back to outbox for retry", file=sys.stderr)
                     _truncate_conversation()
                 except Exception as e:
                     print(f"Outbox error: {e}", file=sys.stderr)
 
             # Poll for new messages
-            result = api('getUpdates', {'offset': offset, 'timeout': 20})
+            result = api('getUpdates', {'offset': offset, 'timeout': 1})
             if not result.get('ok'):
                 time.sleep(2)
                 continue
