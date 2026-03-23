@@ -186,6 +186,22 @@ data/
 
 See [SECURITY.md](SECURITY.md) for full details.
 
+## Known issue: osascript nudge fails under launchd
+
+If you use `TELEGRAM_NUDGE_CMD` with `osascript` + `keystroke` (e.g., to type "tg" into the Claude Code terminal), **it will silently fail when the watcher runs under launchd** (or any non-Terminal parent process).
+
+macOS grants Accessibility permissions to Terminal.app. Child processes launched from Terminal inherit this permission, so `osascript ... keystroke ...` works. But launchd-managed processes do not inherit Terminal's Accessibility context — macOS blocks the keystroke with error 1002 ("not allowed to send keystrokes"), even if you manually add Python and osascript to System Settings > Accessibility.
+
+**Workaround**: Start the watcher from a Terminal shell instead of launchd:
+
+```bash
+cd ~/path-to-data && nohup python3 telegram_watcher.py > /tmp/watcher.log 2>&1 &
+```
+
+This keeps the watcher as a Terminal child process with working Accessibility. The tradeoff is that it won't auto-restart on reboot — you need to start it manually (or add the command to your shell profile).
+
+If you don't need keystroke injection (e.g., you use `/loop` for polling instead), launchd works fine — just don't set `TELEGRAM_NUDGE_CMD` to anything that uses `keystroke`.
+
 ## Architecture notes
 
 - **Atomic writes**: Inbox uses write-to-tmp-then-rename to prevent data loss when the watcher and Claude Code skill access the file concurrently. Outbox uses rename-then-process for the same reason.
