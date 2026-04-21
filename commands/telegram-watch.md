@@ -28,7 +28,7 @@ description: "Telegram 即時通訊：定時檢查 inbox，本體回覆。每 30
 
 ### Watcher 程式
 - 檔案：`~/claude-memory/telegram_watcher.py`
-- LaunchAgent：`com.kunta.telegram-watcher`（KeepAlive + RunAtLoad）
+- LaunchAgent：`com.yourname.telegram-watcher`（KeepAlive + RunAtLoad）
 - Log：`~/claude-memory/logs/watcher-stdout.log`、`watcher-stderr.log`
 - Python：`~/claude-memory/venv/bin/python`
 
